@@ -26,6 +26,9 @@ import ArmadaLean.Fee
 -- CCTP cross-chain model (model sheet v2.1; iskay/armada-lean#1)
 import ArmadaLean.Cctp.Types
 import ArmadaLean.Cctp.Crypto
+import ArmadaLean.Cctp.Chain
+import ArmadaLean.Cctp.Tokens
+import ArmadaLean.Cctp.Circle
 -- Nitro protocol specification (S1 ForceMove, S2 Nitro, S3 SATP); see docs/nitro-theorems.md
 import ArmadaLean.Nitro.Address
 import ArmadaLean.Nitro.Outcome
