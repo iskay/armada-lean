@@ -16,7 +16,7 @@
   "decision_findings": [],
   "file_hashes": {
     "ArmadaLean/BoundParams.lean": "c2ad79cd78bbbf0513035c63788de0d6edb727daf730f38424a835464d7a99e7",
-    "ArmadaLean/Fee.lean": "e5944a2af227f9225ad0f937924200fda15f962e4bf8cea60532a85136198e7e",
+    "ArmadaLean/Fee.lean": "eed0ec6e817528a7706a0e3ea87d41782f4f844d1fa3fa1df91fb1073dc9ffcf",
     "ArmadaLean/Field.lean": "f8cb6168feefbb15482690979c6e4174e0d822455f8aea57fd7a10a37e0cca28",
     "ArmadaLean/Machine.lean": "9f656787302cc1b59f26984b12debc810ab8a9d6d10dfce399f6bcf7ab539dd5",
     "ArmadaLean/Machines.lean": "695af63a065385c58eb7a5ed29e19bb44f01fb3874217351ece4394f70c148e1",
@@ -83,7 +83,7 @@
     "ArmadaLean/ValueConservation.lean": "107f5b141d2151134af04e6f302edff45001e402c29ed71cf699a033afd18490",
     "ArmadaLean/Witness.lean": "1da5c411824e4f888baf588cd09d00229072ee525b8f1254d0cb145a7e71be66",
     "ArmadaLean/Witness/BoundParams.lean": "809180b340ca11064ddf7c8aaef8326b6e859d10926825009b842da48b8f0026",
-    "ArmadaLean/Witness/CircuitValues.lean": "ee6b13a436650b92de47889bb4202a0ee14c248aca1fee793def2d4eec418a54",
+    "ArmadaLean/Witness/CircuitValues.lean": "321cff4d642a067e36d8fdd518d65d6608ab5b5c8f8f111b32df6d0a077159ba",
     "ArmadaLean/Witness/Fee.lean": "9a737e922bd4728384a1f58c42ddf716aca8fe65d4a66abb8c54f3ba47e2d140",
     "ArmadaLean/Witness/Merkle.lean": "ce4dc154a0af7bc031b1760770f9f488de9f8539982cb61295a9bc400da4a3ac",
     "ArmadaLean/Witness/Nitro/Lemmas.lean": "514c4ba1ffe09ea96f206ab6f93b173b470cba8994c31cb8c712ae5d30324d4a",

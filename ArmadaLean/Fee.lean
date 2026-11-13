@@ -21,10 +21,13 @@
   earlier per-shield basis-point argument.
 -/
 
-/-- The hard cap on the shield fee, in percent of the gross amount. Operator ruling,
-    2026-10-27: the shield fee is never 100%; it has a hard cap, probably 1%. This is the
-    one place that sets the cap's value. `shieldBase_pos` needs `maxFeePercent < 100`. -/
-def maxFeePercent : Nat := 1
+/-- The hard cap on the shield fee, in percent of the gross amount. The contract caps the
+    fee at `MAX_SHIELD_FEE_BPS = 1000` basis points, that is 10% (armada-poc `64436c14`,
+    PrivacyPool.sol:39, checked by `setShieldFee` at :407). Operator ruling, 2026-11-09:
+    the model uses the contract's cap. It replaces the 1% of the ruling of 2026-10-27.
+    This is the one place that sets the cap's value. `shieldBase_pos` needs
+    `maxFeePercent < 100`. -/
+def maxFeePercent : Nat := 10
 
 /-- A fee rate fixed at deployment: the fraction `num / den`, with `den > 0`,
     `num ≤ den` (a fee never exceeds the amount) and the hard cap `fee_capped`:
