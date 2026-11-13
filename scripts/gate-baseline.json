@@ -16,6 +16,8 @@
   "decision_findings": [],
   "file_hashes": {
     "ArmadaLean/BoundParams.lean": "c2ad79cd78bbbf0513035c63788de0d6edb727daf730f38424a835464d7a99e7",
+    "ArmadaLean/Cctp/Crypto.lean": "443c273cd6900bb3a7885ff73c4f22a0cdbf21f2472d15117a01b4a02cf270eb",
+    "ArmadaLean/Cctp/Types.lean": "c5c567e2564827a6d69516d204edbb80fde38ce45a81f8fd760fca2644737afe",
     "ArmadaLean/Fee.lean": "eed0ec6e817528a7706a0e3ea87d41782f4f844d1fa3fa1df91fb1073dc9ffcf",
     "ArmadaLean/Field.lean": "f8cb6168feefbb15482690979c6e4174e0d822455f8aea57fd7a10a37e0cca28",
     "ArmadaLean/Machine.lean": "9f656787302cc1b59f26984b12debc810ab8a9d6d10dfce399f6bcf7ab539dd5",

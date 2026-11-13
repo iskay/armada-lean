@@ -23,6 +23,9 @@ import ArmadaLean.PoolSafety
 import ArmadaLean.PoolNonVacuity
 import ArmadaLean.Yield.Vault
 import ArmadaLean.Fee
+-- CCTP cross-chain model (model sheet v2.1; iskay/armada-lean#1)
+import ArmadaLean.Cctp.Types
+import ArmadaLean.Cctp.Crypto
 -- Nitro protocol specification (S1 ForceMove, S2 Nitro, S3 SATP); see docs/nitro-theorems.md
 import ArmadaLean.Nitro.Address
 import ArmadaLean.Nitro.Outcome
