@@ -133,12 +133,17 @@ def msgHashOf {N M : Nat} (pub : TransactPublic N M) : Term :=
     (List.ofFn pub.nullifiers ++ List.ofFn pub.commitmentsOut))
 
 /--
-The full constraint system of the Transact circuit (Transact.circom:57-186),
-as a conjunction (recorded field-wise for easy projection). A witness/public
-pair satisfying `Constrained` is exactly a satisfying assignment of the circuit.
+The constraints of the Transact circuit that every deployed version enforces
+(Transact.circom:57-186 without the input-distinctness block), as a conjunction
+recorded field-wise for easy projection. The signature check is the parameter
+`sigOK`, so a model can take any signature scheme that satisfies a named
+soundness hypothesis instead of the opaque `EdDSAVerify` axiom. `Constrained`
+below is this core at `sigOK = EdDSAVerify`, plus input distinctness. The
+armada-circuits release that armada-poc pins (`v0.1.0-dev`, ef2682f5) has no
+distinctness block, so a statement that must hold for it uses this core.
 -/
-structure Constrained {N M : Nat} (w : TransactWitness N M)
-    (pub : TransactPublic N M) : Prop where
+structure TransactCore (sigOK : (Nat × Nat) → (Nat × Nat × Nat) → Term → Prop) {N M : Nat}
+    (w : TransactWitness N M) (pub : TransactPublic N M) : Prop where
   /-- 2c: Merkle membership — each input note's commitment (derived from the
       master public key :61-66, npk :75-78, commitment :80-84) opens along its
       path to the public root (:86-95): `MerkleTreeProof(16)` with the path's 16
@@ -162,13 +167,31 @@ structure Constrained {N M : Nat} (w : TransactWitness N M)
       (`sumIn === sumOut`, :131-143); upgraded to integer equality by
       `transact_value_conserved`. -/
   balance : fieldEq (listSum (List.ofFn w.valueIn)) (listSum (List.ofFn w.valueOut))
+  /-- 5–6: the signature over the message hash verifies (:163-186), under the
+      signature check `sigOK`. -/
+  sig : sigOK w.publicKey w.signature (msgHashOf pub)
+
+/--
+The full constraint system of the Transact circuit (Transact.circom:57-186),
+as a conjunction (recorded field-wise for easy projection). A witness/public
+pair satisfying `Constrained` is exactly a satisfying assignment of the circuit:
+the core `TransactCore EdDSAVerify` plus input distinctness.
+-/
+structure Constrained {N M : Nat} (w : TransactWitness N M)
+    (pub : TransactPublic N M) : Prop extends TransactCore EdDSAVerify w pub where
   /-- 4b: the inputs of one proof are pairwise distinct — the `IsEqual(...).out === 0`
-      checks at :145-161 (commit `e79919d`, `feat/public-ceremony`; not on upstream
-      `main` or the fork's `integrated`). This compares the inputs of one proof with
-      each other only; it says nothing about earlier spends (module comment). -/
+      checks at :145-161 (introduced in commit `e79919d`, `feat/public-ceremony`).
+      Present in ship-armada/armada-circuits `main` (c9daaab1) and in the
+      `v1.0.0-ceremony` release; absent from `v0.1.0-dev` (ef2682f5), the release
+      armada-poc 64436c14 pins. This compares the inputs of one proof with each other
+      only; it says nothing about earlier spends (module comment). -/
   distinct : ∀ i j, i ≠ j → w.leavesIndices i ≠ w.leavesIndices j
-  /-- 5–6: EdDSA signature over the message hash verifies (:163-186). -/
-  sig : EdDSAVerify w.publicKey w.signature (msgHashOf pub)
+
+/-- The full circuit implies its core: every statement proved over
+    `TransactCore EdDSAVerify` also holds for a witness of the full circuit. -/
+theorem Constrained.core {N M : Nat} {w : TransactWitness N M} {pub : TransactPublic N M}
+    (h : Constrained w pub) : TransactCore EdDSAVerify w pub :=
+  h.toTransactCore
 
 /--
 **Public outputs are uniquely determined by the witness**: the nullifiers and

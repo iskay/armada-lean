@@ -70,7 +70,7 @@
     "ArmadaLean/Spec/Yield/Vault.lean": "c8c1402d77fe9511627f023315646d17195369f3054e948cdfdd27a70eead13c",
     "ArmadaLean/SpecTools.lean": "93a4ffbaae69da35fb56ab01489d514603be4157d80fb0286a26780bda55abde",
     "ArmadaLean/Token.lean": "d3a80f397601119dadf7f29ac771bee3beaf760f5c33308aee14a44e9b1092e3",
-    "ArmadaLean/Transact.lean": "b8d3479d809c7c0b0fb6b19d38676f4c6ed0b5ca3adf706b69168221543a61b3",
+    "ArmadaLean/Transact.lean": "ca98b63e620b83edfb1cf097283f2a897d39b6a4a8793bf225940707156f1e06",
     "ArmadaLean/TransactOwned.lean": "8260edccef057f430c4c86ff5a91b56fe1481d03f465dd4e100c45254a8eb5f7",
     "ArmadaLean/Types/Address.lean": "443d3ab2a73c6fff8dee6bb248b44da47dbf6021f57f97ba5464d85b73a0ae7a",
     "ArmadaLean/Types/App.lean": "3c898ec5d0308f042cbee26ef4355406f615ef3ffb6570c19947e8da2c1a94ca",
