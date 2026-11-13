@@ -36,6 +36,7 @@ import ArmadaLean.Cctp.Router
 import ArmadaLean.Cctp.Yield
 import ArmadaLean.Cctp.HubChain
 import ArmadaLean.Cctp.HubShield
+import ArmadaLean.Cctp.HubTransact
 -- Nitro protocol specification (S1 ForceMove, S2 Nitro, S3 SATP); see docs/nitro-theorems.md
 import ArmadaLean.Nitro.Address
 import ArmadaLean.Nitro.Outcome
