@@ -221,6 +221,7 @@ def HubChain.AtomicUnshield {C : Crypto} (s : HubChain) (caller txOrigin : Term)
   let ps₂ := creditLeaves ps₁ leaves decoded
   s' = { s with
           ledger := L₂,
+          burns := s.burns ++ [rec],
           hub := { s.hub with pool := { ps₂ with
             held := fun t => if t = ⟨s.hub.usdc⟩ then ps₂.held t - tx.note.value else ps₂.held t } },
           events := if leaves = [] then s.events

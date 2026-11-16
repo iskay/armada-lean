@@ -49,11 +49,14 @@ structure AdapterRegistry where
 /-- The wind-down contract (ArmadaWindDown.sol): anyone may trigger wind-down once the
     deadline has passed and recognized revenue is below the threshold
     (ArmadaWindDown.sol:153-174); the revenue sync before the check may fail and leave a
-    stale value (ArmadaWindDown.sol:167). -/
+    stale value (ArmadaWindDown.sol:167). `revenue` is the recognized value the trigger reads;
+    `pending` is fee revenue recorded by fee-module shields but not yet synced into it
+    (flat-fee shields record nothing, ShieldModule.sol:213-222). -/
 structure WindDown where
   deadline : Nat
   threshold : Nat
   revenue : Nat
+  pending : Nat
   triggered : Bool
   pauseController : Term
 

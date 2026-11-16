@@ -49,7 +49,8 @@ structure GaslessState where
   usedPermits : List Permit
 
 /-- A client pool's state (PrivacyPoolClient.sol at armada-poc 64436c14).
-    * `self`: the client's own address.
+    * `self`: the client's own address; `pendingOwner`: the two-step ownership transfer
+      (PrivacyPoolClient.sol:405-420).
     * `tokenMessenger`, `messageTransmitter`, `usdc`, `localDomain`, `owner`: from
       `initialize`, unchecked (PrivacyPoolClient.sol:96-117).
     * `hubDomain`, `hubPool`: mutable by the owner, any word (PrivacyPoolClient.sol:427-432).
@@ -60,6 +61,7 @@ structure GaslessState where
 structure ClientState where
   self : Term
   owner : Term
+  pendingOwner : Option Term
   tokenMessenger : Term
   messageTransmitter : Term
   usdc : Term

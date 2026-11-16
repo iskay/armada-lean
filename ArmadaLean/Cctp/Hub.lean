@@ -19,7 +19,8 @@ namespace ArmadaLean.Cctp
 
 /-- The hub pool's state (PrivacyPool.sol, PrivacyPoolStorage.sol at armada-poc 64436c14).
     * `pool`: the pool model's state (notes, nullifiers, trees, ghost custody, flat fee).
-    * `self`: the pool's own address.
+    * `self`: the pool's own address; `owner` and `pendingOwner`: the two-step ownership
+      transfer (PrivacyPool.sol:304-319).
     * `tokenMessenger`, `messageTransmitter`, `usdc`, `localDomain`, `treasury`: set once by
       `initialize` (PrivacyPool.sol:81-127), which checks only that they are non-zero.
     * `remotePools`, `remoteHookRouters`: per domain, any word (PrivacyPool.sol:326-343).
@@ -35,6 +36,7 @@ structure HubState where
   pool : PoolState
   self : Term
   owner : Term
+  pendingOwner : Option Term
   tokenMessenger : Term
   messageTransmitter : Term
   usdc : Term

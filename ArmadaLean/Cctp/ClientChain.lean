@@ -24,6 +24,8 @@ structure ClientChain where
   circle : CircleChain
   ledger : Ledger
   routers : Term → Option RouterState
+  burns : List BurnRecord
+  generics : List GenericMessage
 
 /-- The finality a client burn requests (PrivacyPoolClient.sol:381-393): the caller's FAST or
     STANDARD request, else the client's default, else STANDARD. -/
@@ -75,7 +77,7 @@ def ClientChain.Shield (s : ClientChain) (caller txOrigin : Term) (note : Shield
   ClientNoteOK note ∧                                                         -- CS6 (CS5: the uint120 type)
   ClientFinalityOK finality ∧
   ∃ L', s.BurnShield caller txOrigin [note] note.value.val maxFee finality rec L' ∧  -- CS7, CB*
-  s' = { s with ledger := L' }
+  s' = { s with ledger := L', burns := s.burns ++ [rec] }
 
 /-- A cross-chain shield with a relayer fee note, by any `caller` (`crossChainShieldWithFee`,
     PrivacyPoolClient.sol:194-222): the user note first (it absorbs the CCTP fee on the hub),
@@ -90,7 +92,7 @@ def ClientChain.ShieldWithFee (s : ClientChain) (caller txOrigin : Term) (userNo
   ClientFinalityOK finality ∧
   ∃ L', s.BurnShield caller txOrigin [userNote, feeNote]
       (userNote.value.val + feeNote.value.val) maxFee finality rec L' ∧         -- CW5, CB*
-  s' = { s with ledger := L' }
+  s' = { s with ledger := L', burns := s.burns ++ [rec] }
 
 /-- A user signs a gasless intent: it joins the signed set (the symbolic stand-in for an
     unforgeable signature, assumption T-20). -/

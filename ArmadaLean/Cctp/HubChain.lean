@@ -29,7 +29,9 @@ structure LeafEvent where
   leaves : List Term
   deriving DecidableEq
 
-/-- The hub chain's state. -/
+/-- The hub chain's state. `burns` and `generics` are ghost records of the burns and generic
+    messages this chain's transactions created; the attestation service reads them, and a reorg
+    that drops a transaction drops its record. -/
 structure HubChain where
   hub : HubState
   circle : CircleChain
@@ -38,6 +40,8 @@ structure HubChain where
   routers : Term → Option RouterState
   yield : YieldState
   events : List LeafEvent
+  burns : List BurnRecord
+  generics : List GenericMessage
 
 /-- A term is a canonical field element: a number below the BN254 scalar field prime, or a
     hash output (which is one by construction). The pools require note keys to be canonical
@@ -92,6 +96,16 @@ def HubChain.FeeOK (s : HubChain) (priv : Bool) (value : Nat) (integrator : Opti
     | none =>
         leg.fee = shieldFee s.hub.pool.feeRatio value ∧ leg.armadaTake = leg.fee ∧
         leg.integratorFee = 0
+
+/-- The fee revenue a shield records with the fee module (`recordShieldFee`,
+    ArmadaFeeModule.sol:159-198): the protocol takes of its notes on the fee-module path; nothing
+    for a privileged caller or the flat path. -/
+def HubChain.recordedRevenue (s : HubChain) (priv : Bool) (legs : List FeeLeg) : Nat :=
+  if s.hub.feeModule.isSome ∧ priv = false then (legs.map (·.armadaTake)).sum else 0
+
+/-- Add recorded fee revenue to the wind-down contract's pending (unsynced) revenue. -/
+def Components.addPending (c : Components) (n : Nat) : Components :=
+  { c with windDown := { c.windDown with pending := c.windDown.pending + n } }
 
 /-- Pay one note's fee legs in token `t` from `payer` (the pool itself on the inbound path,
     the shielder on the local path): the protocol take to the treasury, the integrator fee

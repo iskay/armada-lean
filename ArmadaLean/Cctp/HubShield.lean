@@ -64,6 +64,7 @@ def HubChain.HandleShield (s : HubChain) (caller : Term) (finalized : Bool) (exe
   let pres := creditedPreimages s.hub.usdc notes vals legs
   s' = { s with
           ledger := L',
+          comps := s.comps.addPending (s.recordedRevenue priv legs),
           hub := { s.hub with pool := creditBatch s.hub.pool pres },
           events := s.events ++ [batchEvent s.hub.pool pres] }
 
@@ -107,6 +108,7 @@ def HubChain.LocalShieldBatch (s : HubChain) (caller : Term) (integrator : Optio
   let pres := (reqs.zip legs).map fun x => (⟨x.1.npk, ⟨x.1.token⟩, x.1.value.val - x.2.fee⟩ : CommitmentPreimage)
   s' = { s with
           ledger := L',
+          comps := s.comps.addPending (s.recordedRevenue priv legs),
           hub := { s.hub with pool := creditBatch s.hub.pool pres },
           events := s.events ++ [batchEvent s.hub.pool pres] }
 
