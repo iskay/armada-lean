@@ -31,9 +31,14 @@ structure PauseController where
     vault's yield fee. Its shield split is chosen per call by the adversary within the
     pool's guards (ShieldModule.sol:237-250), so it needs no state here. `privacyPool` is
     the single pool whose `recordShieldFee` calls it accepts (ArmadaFeeModule.sol:166,312);
-    `yieldFeeBps` is the rate the vault reads (not clamped, solvency finding YIELD-02). -/
+    `yieldFeeBps` is the rate the vault reads (not clamped, solvency finding YIELD-02).
+    `yieldVault` is the single vault whose `recordYieldFee` calls it accepts
+    (ArmadaFeeModule.sol:201-202); `usdc` is the one token whose shield fees it counts as
+    revenue (ArmadaFeeModule.sol:176-183). -/
 structure FeeModule where
   privacyPool : Term
+  yieldVault : Term
+  usdc : Term
   yieldFeeBps : Nat
   harvestInterval : Nat
   reverts : Bool
@@ -51,12 +56,15 @@ structure AdapterRegistry where
     (ArmadaWindDown.sol:153-174); the revenue sync before the check may fail and leave a
     stale value (ArmadaWindDown.sol:167). `revenue` is the recognized value the trigger reads;
     `pending` is fee revenue recorded by fee-module shields but not yet synced into it
-    (flat-fee shields record nothing, ShieldModule.sol:213-222). -/
+    (flat-fee shields record nothing, ShieldModule.sol:213-222). The revenue counter reads one
+    fee collector (`feeCollector`, RevenueCounter.sol:12,43-61), so only fees recorded by the
+    fee module at that address count. -/
 structure WindDown where
   deadline : Nat
   threshold : Nat
   revenue : Nat
   pending : Nat
+  feeCollector : Term
   triggered : Bool
   pauseController : Term
 

@@ -114,17 +114,26 @@ def ClientChain.AcceptOwnership (s : ClientChain) (caller : Term) (s' : ClientCh
 
 /-- A governance step on the hub chain's shared components: any adapter-registry contents, any
     fee-module parameters (including the single pool it serves and whether it reverts), any
-    pause-controller state at an address governance controls. -/
+    pause-controller state at an address governance controls, and the revenue counter's fee
+    collector and manual revenue (`setFeeCollector`, `addRevenue`, `attestRevenue`,
+    RevenueCounter.sol:121-190, owner-only). Re-pointing the fee collector resets the counter's
+    sync baseline against the new collector's total, so the unsynced revenue becomes whatever
+    that difference is (`pending`). The counter freezes when wind-down triggers (:210-214);
+    no guard reads revenue after that. -/
 inductive GovOp where
   | setRegistry (a : Term) (r : AdapterRegistry)
   | setFeeModule (a : Term) (f : FeeModule)
   | setController (a : Term) (pc : PauseController)
+  | setFeeCollector (a : Term) (pending : Nat)
+  | addRevenue (n : Nat)
 
 /-- The effect of a governance step. -/
 def GovOp.apply (c : Components) : GovOp → Components
   | .setRegistry a r => { c with registry := fun a' => if a' = a then r else c.registry a' }
   | .setFeeModule a f => { c with feeModule := fun a' => if a' = a then f else c.feeModule a' }
   | .setController a pc => { c with pause := fun a' => if a' = a then pc else c.pause a' }
+  | .setFeeCollector a n => { c with windDown := { c.windDown with feeCollector := a, pending := n } }
+  | .addRevenue n => { c with windDown := { c.windDown with revenue := c.windDown.revenue + n } }
 
 /-- A governance step. Governance is adversarial (D1 (a)); a step it takes needs no other check. -/
 def HubChain.GovStep (s : HubChain) (op : GovOp) (s' : HubChain) : Prop :=

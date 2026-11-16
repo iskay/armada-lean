@@ -10,7 +10,7 @@
   (`ArmadaLean.Yield.Vault`: `c2s`, `c2a`, `LOCKED_SHARES`), pinned to the same vault blob
   (8859da5c at armada-poc 64436c14). Aave is an environment: the vault's position has a
   value that environment steps may raise (gains) or lower (losses), and a pause and a
-  liquidity flag. The yield steps come in a later commit.
+  liquidity flag. The yield steps are in `ArmadaLean.Cctp.HubYield`.
 -/
 import ArmadaLean.Cctp.Types
 import ArmadaLean.Yield.Vault
@@ -30,8 +30,9 @@ structure AdapterState where
 
 /-- The yield vault (ArmadaYieldVault.sol:81-131): its own address (also its share token),
     its owner and fee module, the immutable treasury and underlying token, the yield-fee
-    rate and harvest time, and its fee accounting (cumulative and accrued protocol fee,
-    total deposited and paid out, the yield high-water mark). -/
+    rate and harvest time, its fee accounting (cumulative and accrued protocol fee,
+    total deposited and paid out, the yield high-water mark), and its share token's total
+    supply (the holders' balances are in the ledger). -/
 structure VaultState where
   self : Term
   owner : Term
@@ -45,10 +46,13 @@ structure VaultState where
   totalPaidOut : Nat
   yieldHighWaterMark : Nat
   accruedProtocolFee : Nat
+  totalSupply : Nat
 
 /-- The vault's Aave position (the spoke behind `IAaveSpoke`, ArmadaYieldVault.sol:93):
-    the assets it is worth, and whether Aave is paused or short of liquidity. -/
+    the assets it is worth, whether Aave is paused or short of liquidity, and the address
+    holding the USDC it has been supplied. -/
 structure AaveState where
+  spoke : Term
   vaultAssets : Nat
   paused : Bool
   illiquid : Bool

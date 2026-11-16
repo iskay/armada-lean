@@ -97,11 +97,17 @@ def HubChain.FeeOK (s : HubChain) (priv : Bool) (value : Nat) (integrator : Opti
         leg.fee = shieldFee s.hub.pool.feeRatio value ∧ leg.armadaTake = leg.fee ∧
         leg.integratorFee = 0
 
-/-- The fee revenue a shield records with the fee module (`recordShieldFee`,
-    ArmadaFeeModule.sol:159-198): the protocol takes of its notes on the fee-module path; nothing
-    for a privileged caller or the flat path. -/
-def HubChain.recordedRevenue (s : HubChain) (priv : Bool) (legs : List FeeLeg) : Nat :=
-  if s.hub.feeModule.isSome ∧ priv = false then (legs.map (·.armadaTake)).sum else 0
+/-- The wind-down revenue a shield records (`recordShieldFee`, ArmadaFeeModule.sol:159-198):
+    the protocol takes of its notes in the module's USDC, on the fee-module path, when that
+    module is the fee collector the revenue counter reads; nothing for a privileged caller or
+    the flat path. `fees` pairs each note's token with its fee legs. -/
+def HubChain.recordedRevenue (s : HubChain) (priv : Bool) (fees : List (Term × FeeLeg)) : Nat :=
+  match s.hub.feeModule with
+  | some m =>
+      if priv = false ∧ m = s.comps.windDown.feeCollector then
+        ((fees.filter (fun x => x.1 = (s.comps.feeModule m).usdc)).map (·.2.armadaTake)).sum
+      else 0
+  | none => 0
 
 /-- Add recorded fee revenue to the wind-down contract's pending (unsynced) revenue. -/
 def Components.addPending (c : Components) (n : Nat) : Components :=
