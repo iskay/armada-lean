@@ -40,6 +40,7 @@ import ArmadaLean.Cctp.HubTransact
 import ArmadaLean.Cctp.ClientChain
 import ArmadaLean.Cctp.Delivery
 import ArmadaLean.Cctp.Actors
+import ArmadaLean.Cctp.Env
 -- Nitro protocol specification (S1 ForceMove, S2 Nitro, S3 SATP); see docs/nitro-theorems.md
 import ArmadaLean.Nitro.Address
 import ArmadaLean.Nitro.Outcome
