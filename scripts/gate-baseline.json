@@ -30,6 +30,7 @@
     "ArmadaLean/Cctp/HubShield.lean": "97467ea09eb59362351aadb82ad6be5b8d5a3b97315f6999b8e4c7efad7dec34",
     "ArmadaLean/Cctp/HubTransact.lean": "e4fc58407e80144fbcb1c7aa53d1d0b0feb58539849f530429006d4309d0d5f0",
     "ArmadaLean/Cctp/HubYield.lean": "438eb061259e7d7fa9c135cd60fe2a2c06506e3c197ea0a34a9a1eee778f57e0",
+    "ArmadaLean/Cctp/NonVacuity.lean": "d02296b06688ebd9c3ad1b9a6f3a2965bc661c9558f7fef970b60f2afe33af6f",
     "ArmadaLean/Cctp/Router.lean": "6d2c692c611f672a1bd1efba65ba1f9dcd36ec7748e9642ff8cb23440b5e4a4e",
     "ArmadaLean/Cctp/Shared.lean": "b9eacd114b74116694d5928f1396ebfff1a80190b495b4cbf14f6d071062262d",
     "ArmadaLean/Cctp/System.lean": "9ce8c53e12441212293f81ca8ede9f1cac2bd7c95444426d2e8fa0b99300eaaa",
