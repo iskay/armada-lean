@@ -21,6 +21,13 @@
   message never has one, so with RL1 in place no generic message gets through a genuine
   router. The guard is kept separate so that deleting it (the #613 bug replay) lets a
   burn-shaped generic message reach the hook with nothing minted.
+
+  The hub's steps take the callback frame of `ArmadaLean.Cctp.HubChain` (`Frame`), which the
+  shield handler opens at its fee-module calls. A client chain's steps need none: the client
+  moves only its stored `usdc` and calls only Circle. When that `usdc` is Circle's USDC it
+  makes no callbacks; when it is not, the burn every client shield ends in reverts (Circle
+  burns only linked tokens), and the unshield handler makes one transfer and nothing after
+  it, so a callback there sees nothing a separate step could not.
 -/
 import ArmadaLean.Cctp.HubShield
 import ArmadaLean.Cctp.ClientChain
@@ -63,7 +70,7 @@ def ClientChain.ExternalCaller (s : ClientChain) (c : Term) : Prop :=
     is Circle's, Circle's receipt with the router as caller, then the hook to the truncated mint
     recipient (RL2): the hub's shield handler when that is the hub, nothing in the pools
     otherwise. -/
-def HubChain.Relay (s : HubChain) (iris : Iris) (now : Nat) (rt : Term) (att : Attestation)
+def HubChain.Relay (s : HubChain) (F : Frame) (iris : Iris) (now : Nat) (rt : Term) (att : Attestation)
     (legs : List FeeLeg) (s' : HubChain) : Prop :=
   ∃ r, s.routers rt = some r ∧
   RouterRL1 r s.circle att.msg ∧                                              -- RL1
@@ -73,14 +80,14 @@ def HubChain.Relay (s : HubChain) (iris : Iris) (now : Nat) (rt : Term) (att : A
   ∃ body, att.msg.hookBody = some body ∧
   let s₁ := { s with circle := cc', ledger := L₁ }
   if body.mintRecipient.toAddress = s.hub.self then                          -- RL2
-    s₁.HandleShield rt (decide (2000 ≤ att.executed)) att.executed att.msg.source body
+    s₁.HandleShield F rt (decide (2000 ≤ att.executed)) att.executed att.msg.source body
       att.feeExecuted legs s'
   else s' = s₁
 
 /-- A direct `receiveMessage` on the hub chain by `caller`: a burn mints with no hook; a generic
     message runs its recipient's handler, which for the hub is its shield handler with the
     MessageTransmitter as caller. -/
-def HubChain.DirectReceive (s : HubChain) (iris : Iris) (now : Nat) (caller : Term)
+def HubChain.DirectReceive (s : HubChain) (F : Frame) (iris : Iris) (now : Nat) (caller : Term)
     (att : Attestation) (legs : List FeeLeg) (s' : HubChain) : Prop :=
   ∃ cc' L₁, s.circle.Receive s.ledger iris now caller att cc' L₁ ∧
   let s₁ := { s with circle := cc', ledger := L₁ }
@@ -90,16 +97,16 @@ def HubChain.DirectReceive (s : HubChain) (iris : Iris) (now : Nat) (caller : Te
       GenericRecipientAccepts s.circle g ∧
       if g.recipient.toAddress = s.hub.self then
         ∃ body, g.burnShaped = some body ∧
-          s₁.HandleShield s.circle.messageTransmitter (decide (2000 ≤ att.executed)) att.executed
+          s₁.HandleShield F s.circle.messageTransmitter (decide (2000 ≤ att.executed)) att.executed
             g.source body att.feeExecuted legs s'
       else s' = s₁
 
 /-- A direct call of the hub's shield handler by an external caller, with a body of its choosing
     and nothing minted. -/
-def HubChain.HandlerCall (s : HubChain) (caller : Term) (finalized : Bool) (executed : Nat)
+def HubChain.HandlerCall (s : HubChain) (F : Frame) (caller : Term) (finalized : Bool) (executed : Nat)
     (src : Domain) (body : BurnBody) (feeExecuted : Nat) (legs : List FeeLeg) (s' : HubChain) :
     Prop :=
-  s.ExternalCaller caller ∧ s.HandleShield caller finalized executed src body feeExecuted legs s'
+  s.ExternalCaller caller ∧ s.HandleShield F caller finalized executed src body feeExecuted legs s'
 
 /-- A relay on a client chain through the router at `rt`, dispatching to the client's unshield
     handler when the truncated mint recipient is the client. -/

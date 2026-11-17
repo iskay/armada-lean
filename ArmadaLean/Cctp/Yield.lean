@@ -19,7 +19,8 @@ namespace ArmadaLean.Cctp
 
 /-- The yield adapter (ArmadaYieldAdapter.sol:46-63): its own address, the pool it serves
     (owner-set, unchecked, ArmadaYieldAdapter.sol:120-123), its owner, and the immutable
-    USDC, vault and registry addresses. Its token balances are in the ledger. -/
+    USDC, vault and registry addresses, and its `nonReentrant` flag. Its token balances are in
+    the ledger. -/
 structure AdapterState where
   self : Term
   owner : Term
@@ -27,12 +28,13 @@ structure AdapterState where
   usdc : Term
   vault : Term
   registry : Term
+  guardOn : Bool
 
 /-- The yield vault (ArmadaYieldVault.sol:81-131): its own address (also its share token),
     its owner and fee module, the immutable treasury and underlying token, the yield-fee
     rate and harvest time, its fee accounting (cumulative and accrued protocol fee,
-    total deposited and paid out, the yield high-water mark), and its share token's total
-    supply (the holders' balances are in the ledger). -/
+    total deposited and paid out, the yield high-water mark), its share token's total
+    supply (the holders' balances are in the ledger), and its `nonReentrant` flag. -/
 structure VaultState where
   self : Term
   owner : Term
@@ -47,6 +49,7 @@ structure VaultState where
   yieldHighWaterMark : Nat
   accruedProtocolFee : Nat
   totalSupply : Nat
+  guardOn : Bool
 
 /-- The vault's Aave position (the spoke behind `IAaveSpoke`, ArmadaYieldVault.sol:93):
     the assets it is worth, whether Aave is paused or short of liquidity, and the address

@@ -11,6 +11,10 @@
   bookkeeping (`PoolState.live`, `PoolState.held`) is updated from what the step reveals,
   not from a private witness. A transaction accepted under a degenerate or trapdoor key
   has no witness, and the model must still let it happen (model sheet v2.1 §3.2).
+
+  A step that calls into untrusted code (a token with hooks, the fee module, Aave) takes a
+  callback frame `F` and opens it at each such call, between the effects the code has
+  applied and those it has not (model sheet v2.1 §5.0, decision RD-3 (a)).
 -/
 import ArmadaLean.Cctp.Circle
 import ArmadaLean.Cctp.Shared
@@ -127,6 +131,35 @@ def payLeg (L : Ledger) (t payer treasury : Term) (leg : FeeLeg) : Option Ledger
 def payLegs (L : Ledger) (t payer treasury : Term) : List FeeLeg → Option Ledger
   | [] => some L
   | leg :: legs => (payLeg L t payer treasury leg).bind fun L₁ => payLegs L₁ t payer treasury legs
+
+/-- A callback frame (model sheet v2.1 §5.0): what the environment may do while an outer step
+    has called into untrusted code. The effects the outer step applied so far are visible; the
+    outer step then continues on the state the frame leaves and re-reads what the code
+    re-reads. The steps take the frame as a parameter; the machine
+    (`ArmadaLean.Cctp.System`) supplies it. -/
+abbrev Frame := HubChain → HubChain → Prop
+
+/-- Tokens whose code makes no external calls: the hub's USDC (Circle's FiatToken, under the
+    wiring hypothesis, model sheet departure X-25) and the vault's share token (an OpenZeppelin
+    ERC-20). Every other token is untrusted code. -/
+def HubChain.TrustedToken (s : HubChain) (t : Term) : Prop :=
+  t = s.hub.usdc ∨ t = s.yield.vault.self
+
+/-- A call into token `t` that applies `op` to the ledger. A trusted token makes no callbacks;
+    any other token may open a frame before and after its balance change. -/
+def HubChain.TokenCall (s : HubChain) (F : Frame) (t : Term) (op : Ledger → Option Ledger)
+    (s' : HubChain) : Prop :=
+  s.TrustedToken t ∧ (∃ L', op s.ledger = some L' ∧ s' = { s with ledger := L' }) ∨
+  ¬ s.TrustedToken t ∧ ∃ s₁ L₂, F s s₁ ∧ op s₁.ledger = some L₂ ∧ F { s₁ with ledger := L₂ } s'
+
+/-- The pool's `recordShieldFee` call on the fee-module path (ShieldModule.sol:206-212,357-363):
+    the recorded revenue, then a frame, since the fee module is untrusted code. Nothing on the
+    flat path or for a privileged caller. `fees` pairs each note's token with its fee legs. -/
+def HubChain.RecordFee (s : HubChain) (F : Frame) (priv : Bool) (fees : List (Term × FeeLeg))
+    (s' : HubChain) : Prop :=
+  (∃ m, s.hub.feeModule = some m ∧ priv = false ∧
+    F { s with comps := s.comps.addPending (s.recordedRevenue priv fees) } s') ∨
+  ((s.hub.feeModule = none ∨ priv = true) ∧ s' = s)
 
 /-- Credit a batch of new notes to the pool model's state: their commitments go into one
     Merkle batch (the whole batch moves to a new tree if it would overflow the current one,

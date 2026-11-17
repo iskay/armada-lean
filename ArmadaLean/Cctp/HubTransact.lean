@@ -21,8 +21,12 @@
   ceremony keys (stage C), not an assumption of the step; with a degenerate key the model
   shows the insolvency.
 
-  Departure (recorded in model sheet v2.1 §10 at the next revision): the local payout goes to
-  the unshield note key itself; the contract truncates it to 160 bits (TransactModule.sol:424).
+  The local transact marks every nullifier first, then pays the unshields one by one, then
+  reads the insertion position and inserts (TransactModule.sol:63-94). A payout in a token
+  other than USDC and the vault's shares is a call into untrusted code and opens a callback
+  frame (model sheet v2.1 §5.0); the atomic unshield moves only USDC and calls only Circle.
+
+  Departure (model sheet v2.1 §10, X-22): the local payout goes to the unshield note key itself; the contract truncates it to 160 bits (TransactModule.sol:424).
   Both of the contract's pool guards stay consistent with that choice (the local guard
   compares the truncated address, the atomic guard the whole word), so no theorem depends on
   the truncation.
@@ -141,38 +145,47 @@ noncomputable def creditLeaves (ps : PoolState) (leaves : List Term)
         held := fun t => ps.held t + ((pres.filter (fun pre => pre.token = t)).map (·.value)).sum,
         trees := insertLeaves ps.trees leaves }
 
-/-- Pay the local unshields of a batch in order (TransactModule.sol:77-82,418-436): each payout
-    goes to the unshield note key, never to the pool (LT10), in an ERC-20 transfer from the pool
-    (LT10b, LT11); ghost custody falls by the payout. -/
-def payUnshields {C : Crypto} (self : Term) : Ledger × PoolState → List (HubTx C) →
-    Option (Ledger × PoolState)
-  | acc, [] => some acc
-  | (L, ps), tx :: txs =>
-      if tx.kind = .none then payUnshields self (L, ps) txs
-      else if tx.note.npk = self then none
-      else (L.transfer tx.note.token self tx.note.npk tx.note.value).bind fun L₁ =>
-        payUnshields self
-          (L₁, { ps with held := fun t => if t = ⟨tx.note.token⟩ then ps.held t - tx.note.value else ps.held t,
-                         payouts := ps.payouts ++ [⟨⟨tx.note.token⟩, tx.note.npk, tx.note.value⟩] }) txs
+/-- Pay one local unshield (`_transferTokenOut`, TransactModule.sol:418-436): never to the pool
+    (LT10), an ERC-20 transfer from the pool to the unshield note key (LT10b, LT11); ghost
+    custody falls by the payout. -/
+def HubChain.PayOut {C : Crypto} (s : HubChain) (F : Frame) (tx : HubTx C) (s' : HubChain) : Prop :=
+  tx.note.npk ≠ s.hub.self ∧                                                   -- LT10
+  ∃ s₁, s.TokenCall F tx.note.token                                             -- LT10b, LT11
+    (fun L => L.transfer tx.note.token s.hub.self tx.note.npk tx.note.value) s₁ ∧
+  let ps := s₁.hub.pool
+  s' = { s₁ with hub := { s₁.hub with pool := { ps with
+          held := fun t => if t = ⟨tx.note.token⟩ then ps.held t - tx.note.value else ps.held t,
+          payouts := ps.payouts ++ [⟨⟨tx.note.token⟩, tx.note.npk, tx.note.value⟩] } } }
+
+/-- Pay a batch's local unshields in order (TransactModule.sol:77-82); a transaction without an
+    unshield pays nothing. -/
+inductive PayRun {C : Crypto} (F : Frame) : HubChain → List (HubTx C) → HubChain → Prop where
+  | nil (s : HubChain) : PayRun F s [] s
+  | skip {s s' : HubChain} {tx : HubTx C} {txs : List (HubTx C)}
+      (hNone : tx.kind = .none) (hRest : PayRun F s txs s') : PayRun F s (tx :: txs) s'
+  | pay {s s₁ s' : HubChain} {tx : HubTx C} {txs : List (HubTx C)}
+      (hKind : tx.kind ≠ .none) (hPay : s.PayOut F tx s₁) (hRest : PayRun F s₁ txs s') :
+      PayRun F s (tx :: txs) s'
 
 /-- A batched local transact by `caller` (`PrivacyPool.transact` → `TransactModule.transact`,
     PrivacyPool.sol:146-148; TransactModule.sol:43-98). `decoded` is the ghost decoding of the
-    batch's new commitments. -/
-def HubChain.LocalTransactBatch {C : Crypto} (s : HubChain) (caller : Term) (txs : List (HubTx C))
-    (decoded : List (Option CommitmentPreimage)) (s' : HubChain) : Prop :=
+    batch's new commitments. The re-entrancy guard is held from the nullifiers to the
+    insertion. -/
+def HubChain.LocalTransactBatch {C : Crypto} (s : HubChain) (F : Frame) (caller : Term)
+    (txs : List (HubTx C)) (decoded : List (Option CommitmentPreimage)) (s' : HubChain) : Prop :=
   txs ≠ [] ∧                                                                   -- LT0
   s.hub.guardOn = false ∧                                                      -- LT1
   (∃ pc, s.pauseView = some pc ∧ pc.emergencyPaused = false ∧                   -- LT2
     (pc.withdrawOnly = true → ∀ tx ∈ txs, tx.kind ≠ .none)) ∧                    -- LT3
   ∃ ps₁, ValidateRun s.hub.verificationKeys caller s.hub.pool txs ps₁ ∧          -- LT4-LT9
-  ∃ L₁ ps₂, payUnshields s.hub.self (s.ledger, ps₁) txs = some (L₁, ps₂) ∧       -- LT10, LT11
+  ∃ s₂, PayRun F { s with hub := { s.hub with guardOn := true, pool := ps₁ } } txs s₂ ∧  -- LT10, LT11
   let leaves := (txs.map HubTx.newCommitments).flatten
+  let ps₂ := s₂.hub.pool
   Decodes leaves decoded ∧
-  s' = { s with
-          ledger := L₁,
-          hub := { s.hub with pool := creditLeaves ps₂ leaves decoded },
-          events := if leaves = [] then s.events
-            else s.events ++ [⟨insertTree ps₂.trees leaves.length, insertStart ps₂.trees leaves.length, leaves⟩] }
+  s' = { s₂ with
+          hub := { s₂.hub with guardOn := false, pool := creditLeaves ps₂ leaves decoded },
+          events := if leaves = [] then s₂.events
+            else s₂.events ++ [⟨insertTree ps₂.trees leaves.length, insertStart ps₂.trees leaves.length, leaves⟩] }
 
 /-- The tag Armada's binding hashes first (`keccak256("ArmadaCCTPUnshield.v1")`,
     CCTPBindingLib.sol:24), as a fixed term. -/

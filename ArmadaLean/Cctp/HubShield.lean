@@ -8,12 +8,14 @@
 
   `HandleShield` is the hub handler's part of an inbound delivery: by the time it runs,
   Circle's `receiveMessage` has minted the USDC to the pool (the router composes the two
-  atomically in a later commit). Its fee legs are paid from the pool's own balance.
+  atomically, `ArmadaLean.Cctp.Delivery`). Its fee legs are paid from the pool's own balance.
   `LocalShieldBatch` pulls each note's value and fee legs from the shielder.
 
-  The fee module's split and the order of fee-leg payments follow the code; a callback
-  from the fee module's `recordShieldFee` (re-check RD-3) is added when callbacks are
-  modelled.
+  The fee module's split and the order of fee-leg payments follow the code. Both steps run
+  note by note and open a callback frame at each call into untrusted code: the fee module's
+  `recordShieldFee`, and on the local path every pull of a token other than USDC and the
+  vault's shares (model sheet v2.1 §5.0). The insertion position is read after the loop
+  (ShieldModule.sol:77-78,135-136), so a frame that lands an inbound shield moves it.
 -/
 import ArmadaLean.Cctp.HubChain
 
@@ -35,15 +37,34 @@ def creditedPreimages (t : Term) (notes : List ShieldData) (vals : List Nat) (le
     List CommitmentPreimage :=
   (notes.zip (vals.zip legs)).map fun x => ⟨x.1.npk, ⟨t⟩, x.2.1 - x.2.2.fee⟩
 
+/-- One note's fee on the inbound path (`_applyShieldFee`, ShieldModule.sol:176-225), on pre-fee
+    value `value`: the fee legs paid in USDC from the pool, then the fee-module record. -/
+def HubChain.InboundFee (s : HubChain) (F : Frame) (caller : Term) (integrator : Option Term)
+    (value : Nat) (leg : FeeLeg) (s' : HubChain) : Prop :=
+  ∃ priv, s.privileged caller = some priv ∧                                          -- DS13
+  s.FeeOK priv value integrator leg ∧                                                -- DS14
+  ∃ L', payLeg s.ledger s.hub.usdc s.hub.self s.hub.treasury leg = some L' ∧          -- DS15
+  ({ s with ledger := L' } : HubChain).RecordFee F priv [(s.hub.usdc, leg)] s'       -- DS16
+
+/-- The inbound path's fees note by note, each on the state the previous note's left. Each
+    entry is a note's integrator, pre-fee value and fee legs. -/
+inductive InboundRun (F : Frame) (caller : Term) :
+    HubChain → List (Option Term × Nat × FeeLeg) → HubChain → Prop where
+  | nil (s : HubChain) : InboundRun F caller s [] s
+  | cons {s s₁ s' : HubChain} {x : Option Term × Nat × FeeLeg} {xs : List (Option Term × Nat × FeeLeg)}
+      (hFee : s.InboundFee F caller x.1 x.2.1 x.2.2 s₁) (hRest : InboundRun F caller s₁ xs s') :
+      InboundRun F caller s (x :: xs) s'
+
 /-- The hub's CCTP shield handler (`handleReceiveFinalizedMessage` /
     `handleReceiveUnfinalizedMessage` → `_handleCCTPMessage` → `processIncomingShield`,
     PrivacyPool.sol:199-292; ShieldModule.sol:101-140), run by `caller` on a burn from domain
     `src` with body `body`, executed fee `feeExecuted` and executed finality `executed`.
     `finalized` says which of the two handlers is called. `legs` is the fee module's split
-    per note (the adversary's choice within `FeeOK`). -/
-def HubChain.HandleShield (s : HubChain) (caller : Term) (finalized : Bool) (executed : Nat)
-    (src : Domain) (body : BurnBody) (feeExecuted : Nat) (legs : List FeeLeg) (s' : HubChain) :
-    Prop :=
+    per note (the adversary's choice within `FeeOK`). The handler has no re-entrancy guard
+    (finding CB-10). -/
+def HubChain.HandleShield (s : HubChain) (F : Frame) (caller : Term) (finalized : Bool)
+    (executed : Nat) (src : Domain) (body : BurnBody) (feeExecuted : Nat) (legs : List FeeLeg)
+    (s' : HubChain) : Prop :=
   (caller = s.hub.tokenMessenger ∨ s.hub.hookRouter = some caller) ∧                -- DS1
   (if finalized = true then 2000 ≤ executed else 1000 ≤ executed) ∧                 -- DS2
   ∃ notes : List ShieldData, body.hookData = .shield notes ∧                         -- DS3, DS4
@@ -57,16 +78,12 @@ def HubChain.HandleShield (s : HubChain) (caller : Term) (finalized : Bool) (exe
   received ≤ (notes.map (fun n => n.value.val)).sum ∧                                -- DS11
   (∀ n ∈ notes, Canonical n.npk) ∧ (∀ v ∈ vals, 0 < v) ∧                              -- DS12
   s.hub.blocklist s.hub.usdc = false ∧                                               -- DS12b
-  ∃ priv, s.privileged caller = some priv ∧                                          -- DS13
   legs.length = notes.length ∧
-  (∀ x ∈ notes.zip (vals.zip legs), s.FeeOK priv x.2.1 x.1.integrator x.2.2) ∧        -- DS14, DS16
-  ∃ L', payLegs s.ledger s.hub.usdc s.hub.self s.hub.treasury legs = some L' ∧       -- DS15
+  ∃ s₁, InboundRun F caller s ((notes.map (·.integrator)).zip (vals.zip legs)) s₁ ∧  -- DS13-DS16
   let pres := creditedPreimages s.hub.usdc notes vals legs
-  s' = { s with
-          ledger := L',
-          comps := s.comps.addPending (s.recordedRevenue priv (legs.map (s.hub.usdc, ·))),
-          hub := { s.hub with pool := creditBatch s.hub.pool pres },
-          events := s.events ++ [batchEvent s.hub.pool pres] }
+  s' = { s₁ with
+          hub := { s₁.hub with pool := creditBatch s₁.hub.pool pres },
+          events := s₁.events ++ [batchEvent s₁.hub.pool pres] }
 
 /-- One request of a local shield (`ShieldRequest`, ShieldModule.sol:45-90): the note key,
     the token, and the gross value, a `uint120`. -/
@@ -76,41 +93,49 @@ structure ShieldRequest where
   value : {v : Nat // v < 2 ^ 120}
   deriving DecidableEq
 
-/-- Pull one request's tokens from the shielder (ShieldModule.sol:303-385): the note's value
-    minus its fee into the pool, and the fee legs to the treasury and the integrator. The
-    pool's exact balance-change check (ShieldModule.sol:321-324,341-343) always holds for a
-    ledger transfer; a token that lies about balances is an environment step. -/
-def pullRequest (L : Ledger) (pool caller treasury : Term) (r : ShieldRequest) (leg : FeeLeg) :
-    Option Ledger :=
-  (L.transferFrom r.token pool caller pool (r.value.val - leg.fee)).bind fun L₁ =>
-    payLeg L₁ r.token caller treasury leg
+/-- One request of a local shield by `caller` (`_validateCommitmentPreimage` then
+    `_transferTokenIn`, ShieldModule.sol:62-74,269-385): the value net of fee pulled into the
+    pool under the pool's exact balance-change check, then the fee legs pulled from the caller
+    to the treasury and the integrator, then the fee-module record. Each pull is a call into
+    the token. -/
+def HubChain.ShieldIn (s : HubChain) (F : Frame) (caller : Term) (integrator : Option Term)
+    (r : ShieldRequest) (leg : FeeLeg) (s' : HubChain) : Prop :=
+  0 < r.value.val ∧ s.hub.blocklist r.token = false ∧ Canonical r.npk ∧              -- LS4-LS6
+  ∃ priv, s.privileged caller = some priv ∧                                          -- LS7
+  s.FeeOK priv r.value.val integrator leg ∧                                          -- LS8
+  let pool := s.hub.self
+  let base := r.value.val - leg.fee
+  ∃ s₁, s.TokenCall F r.token (fun L => L.transferFrom r.token pool caller pool base) s₁ ∧  -- LS9
+  s.ledger.balance r.token pool + base = s₁.ledger.balance r.token pool ∧
+  ∃ s₂, (leg.armadaTake = 0 ∧ s₂ = s₁ ∨ 0 < leg.armadaTake ∧                         -- LS10
+    s₁.TokenCall F r.token
+      (fun L => L.transferFrom r.token pool caller s.hub.treasury leg.armadaTake) s₂) ∧
+  ∃ s₃, (leg.integratorFee = 0 ∧ s₃ = s₂ ∨ ∃ i, 0 < leg.integratorFee ∧ leg.integrator = some i ∧
+    s₂.TokenCall F r.token (fun L => L.transferFrom r.token pool caller i leg.integratorFee) s₃) ∧
+  s₃.RecordFee F priv [(r.token, leg)] s'                                            -- LS8
 
-/-- Pull every request of a batch in order; any failure reverts the batch. -/
-def pullRequests (L : Ledger) (pool caller treasury : Term) :
-    List (ShieldRequest × FeeLeg) → Option Ledger
-  | [] => some L
-  | x :: xs => (pullRequest L pool caller treasury x.1 x.2).bind fun L₁ =>
-      pullRequests L₁ pool caller treasury xs
+/-- A local shield's requests in order, each on the state the previous one left. -/
+inductive ShieldRun (F : Frame) (caller : Term) (integrator : Option Term) :
+    HubChain → List (ShieldRequest × FeeLeg) → HubChain → Prop where
+  | nil (s : HubChain) : ShieldRun F caller integrator s [] s
+  | cons {s s₁ s' : HubChain} {x : ShieldRequest × FeeLeg} {xs : List (ShieldRequest × FeeLeg)}
+      (hIn : s.ShieldIn F caller integrator x.1 x.2 s₁) (hRest : ShieldRun F caller integrator s₁ xs s') :
+      ShieldRun F caller integrator s (x :: xs) s'
 
 /-- A batched local shield by `caller` with integrator `integrator` (`PrivacyPool.shield` →
     `ShieldModule.shield`, PrivacyPool.sol:138-140; ShieldModule.sol:45-90). `legs` is the
-    fee split per request. -/
-def HubChain.LocalShieldBatch (s : HubChain) (caller : Term) (integrator : Option Term)
+    fee split per request. The re-entrancy guard is held for the whole batch. -/
+def HubChain.LocalShieldBatch (s : HubChain) (F : Frame) (caller : Term) (integrator : Option Term)
     (reqs : List ShieldRequest) (legs : List FeeLeg) (s' : HubChain) : Prop :=
   reqs ≠ [] ∧                                                                        -- LS0
   s.hub.guardOn = false ∧                                                            -- LS1
   (∃ pc, s.pauseView = some pc ∧ pc.shieldsPaused = false) ∧                         -- LS2
-  (∀ r ∈ reqs, 0 < r.value.val ∧ s.hub.blocklist r.token = false ∧ Canonical r.npk) ∧  -- LS4-LS6
-  ∃ priv, s.privileged caller = some priv ∧                                          -- LS7
   legs.length = reqs.length ∧
-  (∀ x ∈ reqs.zip legs, s.FeeOK priv x.1.value.val integrator x.2) ∧                  -- LS8
-  ∃ L', pullRequests s.ledger s.hub.self caller s.hub.treasury (reqs.zip legs) = some L' ∧  -- LS9, LS10
+  ∃ s₁, ShieldRun F caller integrator { s with hub := { s.hub with guardOn := true } }  -- LS4-LS10
+    (reqs.zip legs) s₁ ∧
   let pres := (reqs.zip legs).map fun x => (⟨x.1.npk, ⟨x.1.token⟩, x.1.value.val - x.2.fee⟩ : CommitmentPreimage)
-  s' = { s with
-          ledger := L',
-          comps := s.comps.addPending
-            (s.recordedRevenue priv ((reqs.zip legs).map fun x => (x.1.token, x.2))),
-          hub := { s.hub with pool := creditBatch s.hub.pool pres },
-          events := s.events ++ [batchEvent s.hub.pool pres] }
+  s' = { s₁ with
+          hub := { s₁.hub with guardOn := false, pool := creditBatch s₁.hub.pool pres },
+          events := s₁.events ++ [batchEvent s₁.hub.pool pres] }
 
 end ArmadaLean.Cctp
