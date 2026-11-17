@@ -9,8 +9,9 @@
   gasless intents and permits are symbolic: an intent or permit enters the state only by a
   step of its signer (`signIntent`, `signPermit`), which stands for an unforgeable
   signature scheme whose digest covers the listed fields (assumption T-20). The client's
-  steps come in a later commit. The hub's own gasless wrapper (GaslessShieldWrapper.sol)
-  uses the same `Intent` and `Permit` records.
+  steps are in `ArmadaLean.Cctp.ClientChain`. The hub's own gasless wrapper
+  (GaslessShieldWrapper.sol) uses the same `Permit` record and its own intent, `HubIntent`
+  (`ArmadaLean.Cctp.HubChain`).
 -/
 import ArmadaLean.Cctp.Types
 

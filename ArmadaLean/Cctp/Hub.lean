@@ -17,6 +17,14 @@ import ArmadaLean.Cctp.Crypto
 
 namespace ArmadaLean.Cctp
 
+/-- One request of a local shield (`ShieldRequest`, ShieldModule.sol:45-90): the note key,
+    the token, and the gross value, a `uint120`. -/
+structure ShieldRequest where
+  npk : Term
+  token : Term
+  value : {v : Nat // v < 2 ^ 120}
+  deriving DecidableEq
+
 /-- The hub pool's state (PrivacyPool.sol, PrivacyPoolStorage.sol at armada-poc 64436c14).
     * `pool`: the pool model's state (notes, nullifiers, trees, ghost custody, flat fee).
     * `self`: the pool's own address; `owner` and `pendingOwner`: the two-step ownership

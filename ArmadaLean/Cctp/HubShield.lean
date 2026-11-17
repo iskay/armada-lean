@@ -85,14 +85,6 @@ def HubChain.HandleShield (s : HubChain) (F : Frame) (caller : Term) (finalized 
           hub := { s₁.hub with pool := creditBatch s₁.hub.pool pres },
           events := s₁.events ++ [batchEvent s₁.hub.pool pres] }
 
-/-- One request of a local shield (`ShieldRequest`, ShieldModule.sol:45-90): the note key,
-    the token, and the gross value, a `uint120`. -/
-structure ShieldRequest where
-  npk : Term
-  token : Term
-  value : {v : Nat // v < 2 ^ 120}
-  deriving DecidableEq
-
 /-- One request of a local shield by `caller` (`_validateCommitmentPreimage` then
     `_transferTokenIn`, ShieldModule.sol:62-74,269-385): the value net of fee pulled into the
     pool under the pool's exact balance-change check, then the fee legs pulled from the caller

@@ -21,6 +21,7 @@ import ArmadaLean.Cctp.Shared
 import ArmadaLean.Cctp.Hub
 import ArmadaLean.Cctp.Router
 import ArmadaLean.Cctp.Yield
+import ArmadaLean.Cctp.Client
 
 namespace ArmadaLean.Cctp
 
@@ -32,6 +33,28 @@ structure LeafEvent where
   start : Nat
   leaves : List Term
   deriving DecidableEq
+
+/-- A signed hub gasless shield intent (GaslessShieldWrapper.sol:60-62,149-169): the user, the
+    shield requests (bound by their hash), the integrator, a deadline and the user's nonce. -/
+structure HubIntent where
+  user : Term
+  reqs : List ShieldRequest
+  integrator : Option Term
+  deadline : Nat
+  nonce : Nat
+  deriving DecidableEq
+
+/-- The hub's gasless wrapper (GaslessShieldWrapper.sol:42-105): its own address, its immutable
+    USDC and pool (non-zero, otherwise unchecked), each user's next nonce, and the intents and
+    permits their owners have signed. -/
+structure HubGasless where
+  self : Term
+  usdc : Term
+  privacyPool : Term
+  nonces : Term → Nat
+  signedIntents : List HubIntent
+  signedPermits : List Permit
+  usedPermits : List Permit
 
 /-- The hub chain's state. `burns` and `generics` are ghost records of the burns and generic
     messages this chain's transactions created; the attestation service reads them, and a reorg
@@ -46,6 +69,7 @@ structure HubChain where
   events : List LeafEvent
   burns : List BurnRecord
   generics : List GenericMessage
+  gasless : HubGasless
 
 /-- A term is a canonical field element: a number below the BN254 scalar field prime, or a
     hash output (which is one by construction). The pools require note keys to be canonical
