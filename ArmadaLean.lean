@@ -43,6 +43,7 @@ import ArmadaLean.Cctp.Actors
 import ArmadaLean.Cctp.Env
 import ArmadaLean.Cctp.HubYield
 import ArmadaLean.Cctp.HubGasless
+import ArmadaLean.Cctp.System
 -- Nitro protocol specification (S1 ForceMove, S2 Nitro, S3 SATP); see docs/nitro-theorems.md
 import ArmadaLean.Nitro.Address
 import ArmadaLean.Nitro.Outcome
